@@ -20,29 +20,20 @@ if ($conn->connect_error) {
 $message = "";
 
 if ($_SERVER["REQUEST_METHOD"] == "POST" && isset($_POST["add_student"])) {
-    $studentId = trim($_POST["student_id"]);
     $name = trim($_POST["name"]);
     $email = trim($_POST["email"]);
 
-    if (!empty($studentId) && !empty($name) && !empty($email)) {
-        $checkStmt = $conn->prepare("SELECT id, student_id, email FROM students WHERE student_id = ? OR email = ?");
-        $checkStmt->bind_param("ss", $studentId, $email);
+    if (!empty($name) && !empty($email)) {
+        $checkStmt = $conn->prepare("SELECT id FROM students WHERE email = ?");
+        $checkStmt->bind_param("s", $email);
         $checkStmt->execute();
         $checkResult = $checkStmt->get_result();
 
         if ($checkResult->num_rows > 0) {
-            $existing = $checkResult->fetch_assoc();
-
-            if ($existing["student_id"] === $studentId) {
-                $message = "This Student ID already exists.";
-            } elseif ($existing["email"] === $email) {
-                $message = "This student email already exists.";
-            } else {
-                $message = "Student ID or email already exists.";
-            }
+            $message = "This student email already exists.";
         } else {
-            $insertStmt = $conn->prepare("INSERT INTO students (student_id, name, email) VALUES (?, ?, ?)");
-            $insertStmt->bind_param("sss", $studentId, $name, $email);
+            $insertStmt = $conn->prepare("INSERT INTO students (name, email) VALUES (?, ?)");
+            $insertStmt->bind_param("ss", $name, $email);
 
             if ($insertStmt->execute()) {
                 $message = "Student added successfully.";
@@ -55,7 +46,7 @@ if ($_SERVER["REQUEST_METHOD"] == "POST" && isset($_POST["add_student"])) {
 
         $checkStmt->close();
     } else {
-        $message = "Please fill all student fields.";
+        $message = "Please fill all fields.";
     }
 }
 
@@ -75,6 +66,7 @@ if (isset($_GET["delete"])) {
 }
 
 $result = $conn->query("SELECT * FROM students ORDER BY id ASC");
+$totalStudents = $result ? $result->num_rows : 0;
 ?>
 
 <!DOCTYPE html>
@@ -88,6 +80,7 @@ $result = $conn->query("SELECT * FROM students ORDER BY id ASC");
 <body>
 
 <div class="container large">
+
     <div class="top-bar">
         <div>
             <h1>Student Management</h1>
@@ -107,18 +100,21 @@ $result = $conn->query("SELECT * FROM students ORDER BY id ASC");
     <h2>Add Student</h2>
 
     <form method="POST">
-        <input type="text" name="student_id" placeholder="Student ID" required>
         <input type="text" name="name" placeholder="Student Name" required>
         <input type="email" name="email" placeholder="Student Email" required>
         <button type="submit" name="add_student">Add Student</button>
     </form>
 
-    <h2>Student List</h2>
+    <div class="table-header">
+        <h2>Student List</h2>
+        <p class="student-count">Total students: <?php echo $totalStudents; ?></p>
+    </div>
 
-    <table>
+    <input type="text" id="searchInput" class="search-box" placeholder="Search student by name..." onkeyup="searchStudent()">
+
+    <table id="studentsTable">
         <tr>
             <th>ID</th>
-            <th>Student ID</th>
             <th>Name</th>
             <th>Email</th>
             <th>Action</th>
@@ -128,10 +124,9 @@ $result = $conn->query("SELECT * FROM students ORDER BY id ASC");
             <?php while ($row = $result->fetch_assoc()) { ?>
                 <tr>
                     <td><?php echo htmlspecialchars($row["id"]); ?></td>
-                    <td><?php echo htmlspecialchars($row["student_id"]); ?></td>
                     <td><?php echo htmlspecialchars($row["name"]); ?></td>
                     <td><?php echo htmlspecialchars($row["email"]); ?></td>
-                    <td>
+                    <td class="action-cell">
                         <a class="edit-link" href="edit_student.php?id=<?php echo $row["id"]; ?>">Edit</a>
                         <a class="delete-link" href="students.php?delete=<?php echo $row["id"]; ?>" onclick="return confirm('Delete this student?')">Delete</a>
                     </td>
@@ -139,15 +134,39 @@ $result = $conn->query("SELECT * FROM students ORDER BY id ASC");
             <?php } ?>
         <?php } else { ?>
             <tr>
-                <td colspan="5">No students found.</td>
+                <td colspan="4">No students found.</td>
             </tr>
         <?php } ?>
     </table>
+
 </div>
 
 <footer class="footer">
     <p>Student Management System — Created and developed by Gabriel Puertas Passarelli © 2026</p>
 </footer>
+
+<script>
+function searchStudent() {
+    let input = document.getElementById("searchInput");
+    let filter = input.value.toLowerCase();
+    let table = document.getElementById("studentsTable");
+    let tr = table.getElementsByTagName("tr");
+
+    for (let i = 1; i < tr.length; i++) {
+        let td = tr[i].getElementsByTagName("td")[1];
+
+        if (td) {
+            let textValue = td.textContent || td.innerText;
+
+            if (textValue.toLowerCase().indexOf(filter) > -1) {
+                tr[i].style.display = "";
+            } else {
+                tr[i].style.display = "none";
+            }
+        }
+    }
+}
+</script>
 
 </body>
 </html>

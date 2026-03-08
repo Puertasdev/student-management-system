@@ -25,7 +25,7 @@ if (!isset($_GET["id"]) || !is_numeric($_GET["id"])) {
 $id = (int) $_GET["id"];
 $message = "";
 
-$stmt = $conn->prepare("SELECT id, student_id, name, email FROM students WHERE id = ?");
+$stmt = $conn->prepare("SELECT id, name, email FROM students WHERE id = ?");
 $stmt->bind_param("i", $id);
 $stmt->execute();
 $result = $stmt->get_result();
@@ -40,29 +40,20 @@ $student = $result->fetch_assoc();
 $stmt->close();
 
 if ($_SERVER["REQUEST_METHOD"] == "POST") {
-    $studentId = trim($_POST["student_id"]);
     $name = trim($_POST["name"]);
     $email = trim($_POST["email"]);
 
-    if (!empty($studentId) && !empty($name) && !empty($email)) {
-        $checkStmt = $conn->prepare("SELECT id, student_id, email FROM students WHERE (student_id = ? OR email = ?) AND id != ?");
-        $checkStmt->bind_param("ssi", $studentId, $email, $id);
+    if (!empty($name) && !empty($email)) {
+        $checkStmt = $conn->prepare("SELECT id FROM students WHERE email = ? AND id != ?");
+        $checkStmt->bind_param("si", $email, $id);
         $checkStmt->execute();
         $checkResult = $checkStmt->get_result();
 
         if ($checkResult->num_rows > 0) {
-            $existing = $checkResult->fetch_assoc();
-
-            if ($existing["student_id"] === $studentId) {
-                $message = "This Student ID already exists.";
-            } elseif ($existing["email"] === $email) {
-                $message = "This student email already exists.";
-            } else {
-                $message = "Student ID or email already exists.";
-            }
+            $message = "This email already exists.";
         } else {
-            $updateStmt = $conn->prepare("UPDATE students SET student_id = ?, name = ?, email = ? WHERE id = ?");
-            $updateStmt->bind_param("sssi", $studentId, $name, $email, $id);
+            $updateStmt = $conn->prepare("UPDATE students SET name = ?, email = ? WHERE id = ?");
+            $updateStmt->bind_param("ssi", $name, $email, $id);
 
             if ($updateStmt->execute()) {
                 header("Location: students.php");
@@ -79,7 +70,7 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
         $message = "Please fill all fields.";
     }
 
-    $refreshStmt = $conn->prepare("SELECT id, student_id, name, email FROM students WHERE id = ?");
+    $refreshStmt = $conn->prepare("SELECT id, name, email FROM students WHERE id = ?");
     $refreshStmt->bind_param("i", $id);
     $refreshStmt->execute();
     $refreshResult = $refreshStmt->get_result();
@@ -110,7 +101,6 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
     <?php } ?>
 
     <form method="POST">
-        <input type="text" name="student_id" value="<?php echo htmlspecialchars($student["student_id"]); ?>" required>
         <input type="text" name="name" value="<?php echo htmlspecialchars($student["name"]); ?>" required>
         <input type="email" name="email" value="<?php echo htmlspecialchars($student["email"]); ?>" required>
         <button type="submit">Save Changes</button>
