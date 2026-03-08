@@ -2,11 +2,11 @@
 session_start();
 
 $host = "localhost";
-$user = "root";
-$password = "";
+$dbUser = "root";
+$dbPassword = "";
 $database = "student_management";
 
-$conn = new mysqli($host, $user, $password, $database);
+$conn = new mysqli($host, $dbUser, $dbPassword, $database);
 
 if ($conn->connect_error) {
     die("Connection failed: " . $conn->connect_error);
@@ -20,23 +20,29 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
     $userPassword = trim($_POST["password"]);
 
     if (!empty($username) && !empty($email) && !empty($userPassword)) {
-        $checkSql = "SELECT id FROM users WHERE email = '$email'";
-        $checkResult = $conn->query($checkSql);
+        $checkStmt = $conn->prepare("SELECT id FROM users WHERE email = ?");
+        $checkStmt->bind_param("s", $email);
+        $checkStmt->execute();
+        $checkResult = $checkStmt->get_result();
 
         if ($checkResult->num_rows > 0) {
             $message = "This email is already registered.";
         } else {
             $hashedPassword = password_hash($userPassword, PASSWORD_DEFAULT);
 
-            $sql = "INSERT INTO users (username, email, password)
-                    VALUES ('$username', '$email', '$hashedPassword')";
+            $insertStmt = $conn->prepare("INSERT INTO users (username, email, password) VALUES (?, ?, ?)");
+            $insertStmt->bind_param("sss", $username, $email, $hashedPassword);
 
-            if ($conn->query($sql) === TRUE) {
+            if ($insertStmt->execute()) {
                 $message = "User registered successfully.";
             } else {
                 $message = "Error: " . $conn->error;
             }
+
+            $insertStmt->close();
         }
+
+        $checkStmt->close();
     } else {
         $message = "Please fill all fields.";
     }
@@ -57,7 +63,7 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
     <h1>Register</h1>
 
     <?php if (!empty($message)) { ?>
-        <p class="message"><?php echo $message; ?></p>
+        <p class="message"><?php echo htmlspecialchars($message); ?></p>
     <?php } ?>
 
     <form method="POST">

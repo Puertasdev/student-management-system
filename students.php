@@ -25,13 +25,21 @@ if ($_SERVER["REQUEST_METHOD"] == "POST" && isset($_POST["add_student"])) {
     $email = trim($_POST["email"]);
 
     if (!empty($studentId) && !empty($name) && !empty($email)) {
-        $checkStmt = $conn->prepare("SELECT id FROM students WHERE student_id = ? OR email = ?");
+        $checkStmt = $conn->prepare("SELECT id, student_id, email FROM students WHERE student_id = ? OR email = ?");
         $checkStmt->bind_param("ss", $studentId, $email);
         $checkStmt->execute();
         $checkResult = $checkStmt->get_result();
 
         if ($checkResult->num_rows > 0) {
-            $message = "Student ID or email already exists.";
+            $existing = $checkResult->fetch_assoc();
+
+            if ($existing["student_id"] === $studentId) {
+                $message = "This Student ID already exists.";
+            } elseif ($existing["email"] === $email) {
+                $message = "This student email already exists.";
+            } else {
+                $message = "Student ID or email already exists.";
+            }
         } else {
             $insertStmt = $conn->prepare("INSERT INTO students (student_id, name, email) VALUES (?, ?, ?)");
             $insertStmt->bind_param("sss", $studentId, $name, $email);
